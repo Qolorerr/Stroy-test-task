@@ -45,7 +45,16 @@ async def admin_token_verification(token: Annotated[str | None, Header()] = None
 
 
 # Users management
-@app.post("/user")
+@app.post("/user", responses={
+    201: {
+        "content": {
+            "application/json": {
+                "example": {"user_id": 12, "token": "Some secret token"}
+            }
+        },
+        "description": "User created"
+    },
+})
 async def create_user(username: str):
     async with create_session() as session:
         token = str(uuid4())
@@ -57,7 +66,17 @@ async def create_user(username: str):
                             status_code=status.HTTP_201_CREATED)
 
 
-@app.delete("/user")
+@app.delete("/user", responses={
+    204: {
+        "description": "User deleted"
+    },
+    401: {
+        "description": "Not authorized"
+    },
+    404: {
+        "description": "User not found"
+    },
+})
 async def delete_user_self(user_id=Depends(user_token_verification)):
     async with create_session() as session:
         user = await session.get(User, user_id)
@@ -78,7 +97,20 @@ async def _admin_rights_verification(user_id: int) -> bool:
         return result[0].admin
 
 
-@app.delete("/user/{user_id}")
+@app.delete("/user/{user_id}", responses={
+    204: {
+        "description": "User deleted"
+    },
+    401: {
+        "description": "Not authorized"
+    },
+    403: {
+        "description": "Have no rights"
+    },
+    404: {
+        "description": "User not found"
+    },
+})
 async def delete_user(user_id: Annotated[int, Path()], curr_user_id=Depends(user_token_verification)):
     async with create_session() as session:
         user = await session.get(User, user_id)
@@ -93,7 +125,22 @@ async def delete_user(user_id: Annotated[int, Path()], curr_user_id=Depends(user
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@app.post("/admin", dependencies=[Depends(admin_token_verification)])
+@app.post("/admin", dependencies=[Depends(admin_token_verification)], responses={
+    201: {
+        "content": {
+            "application/json": {
+                "example": {"user_id": 12, "token": "Some secret token"}
+            }
+        },
+        "description": "Admin created"
+    },
+    401: {
+        "description": "Not authorized"
+    },
+    403: {
+        "description": "Have no rights"
+    },
+})
 async def create_admin(username: str):
     async with create_session() as session:
         token = str(uuid4())
@@ -106,7 +153,26 @@ async def create_admin(username: str):
 
 
 # Items management
-@app.get("/item")
+@app.get("/item", responses={
+    200: {
+        "content": {
+            "application/json": {
+                "example": [
+                    {
+                        "item_id": 12,
+                        "tag_ids": [1, 2, 3],
+                        "owner_id": 12,
+                        "content": "Some info about item",
+                        "price": 12,
+                        "created_at": "2024-08-19T12:00:00.000000",
+                        "updated_at": "2024-08-19T12:00:00.000000"
+                    }
+                ]
+            }
+        },
+        "description": "Ok"
+    },
+})
 async def get_items(owner_id: int | None = None, tag_id: int | None = None,
                     price_more_than: float | None = None,
                     price_less_than: float | None = None,
@@ -138,7 +204,27 @@ async def get_items(owner_id: int | None = None, tag_id: int | None = None,
         return JSONResponse(content=results, status_code=status.HTTP_200_OK)
 
 
-@app.get("/item/{item_id}")
+@app.get("/item/{item_id}", responses={
+    200: {
+        "content": {
+            "application/json": {
+                "example":{
+                    "item_id": 12,
+                    "tag_ids": [1, 2, 3],
+                    "owner_id": 12,
+                    "content": "Some info about item",
+                    "price": 12,
+                    "created_at": "2024-08-19T12:00:00.000000",
+                    "updated_at": "2024-08-19T12:00:00.000000"
+                }
+            }
+        },
+        "description": "Ok"
+    },
+    404: {
+        "description": "Item not found"
+    },
+})
 async def get_item(item_id: Annotated[int, Path()]):
     async with create_session() as session:
         query = select(Item).join(Item.tags).where(Item.item_id == item_id)
@@ -155,7 +241,19 @@ class PostItem(BaseModel):
     price: float
 
 
-@app.post("/item")
+@app.post("/item", responses={
+    201: {
+        "content": {
+            "application/json": {
+                "example": {"item_id": 12}
+            }
+        },
+        "description": "User created"
+    },
+    401: {
+        "description": "Not authorized"
+    },
+})
 async def post_item(args: PostItem, user_id=Depends(user_token_verification)):
     async with create_session() as session:
         item = Item(owner_id=user_id, content=args.content,
@@ -179,7 +277,20 @@ class PatchItem(BaseModel):
     price: float | None = None
 
 
-@app.patch("/item/{item_id}")
+@app.patch("/item/{item_id}", responses={
+    200: {
+        "description": "Ok"
+    },
+    401: {
+        "description": "Not authorized"
+    },
+    403: {
+        "description": "Have no rights"
+    },
+    404: {
+        "description": "Item not found"
+    },
+})
 async def patch_item(args: PatchItem, item_id: Annotated[int, Path()],
                      user_id=Depends(user_token_verification)):
     async with create_session() as session:
@@ -208,7 +319,20 @@ async def patch_item(args: PatchItem, item_id: Annotated[int, Path()],
         return Response(status_code=status.HTTP_200_OK)
 
 
-@app.delete("/item/{item_id}")
+@app.delete("/item/{item_id}", responses={
+    204: {
+        "description": "Item deleted"
+    },
+    401: {
+        "description": "Not authorized"
+    },
+    403: {
+        "description": "Have no rights"
+    },
+    404: {
+        "description": "Item not found"
+    },
+})
 async def delete_item(item_id: Annotated[int, Path()], user_id=Depends(user_token_verification)):
     async with create_session() as session:
         item = await session.get(Item, item_id)
